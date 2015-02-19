@@ -110,13 +110,13 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	std::cout << dump_rle(std::string());
 
-	//test_data.push_back("aaaabcbcbcdddd");  test_results.push_back("[r4]a[s6]bcbcbc[r4]d");
-	//test_data.push_back("aaaqqqssrtpp");	test_results.push_back("[r3]a[r3]q[r2]s[s2]rt[r2]p");
-	//test_data.push_back("");				test_results.push_back("");
-	//test_data.push_back("a");				test_results.push_back("");
+	test_data.push_back("aaaabcbcbcdddd");  test_results.push_back("[r4]a[s6]bcbcbc[r4]d");
+	test_data.push_back("aaaqqqssrtpp");	test_results.push_back("[r3]a[r3]q[r2]s[s2]rt[r2]p");
+	test_data.push_back("");				test_results.push_back("");
+	test_data.push_back("a");				test_results.push_back("");
 	test_data.push_back("aa");				test_results.push_back("[r2]a");
 	test_data.push_back("ba");				test_results.push_back("[s2]ba");
-	//test_data.push_back("abc");				test_results.push_back("[s3]abc");
+	test_data.push_back("abc");				test_results.push_back("[s3]abc");
 
 	for (unsigned int i = 0; i < test_data.size(); ++i)
 	{
