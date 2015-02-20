@@ -80,3 +80,5 @@ $RECYCLE.BIN/
 *.sdf
 *.suo
 *.pdb
+*.idb
+*.vcxproj.user
