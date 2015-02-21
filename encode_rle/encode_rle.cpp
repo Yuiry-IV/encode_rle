@@ -66,7 +66,101 @@ iterator insert_byte(const iterator begin, const iterator end, container &out)
 	return end;
 }
 
-template <typename container> bool encode_rle(const container &in, container & out)
+
+void encode_rle(std::istream &is, std::ostream &os)
+{
+	std::string buf;
+	char prev_prev_ch = 0;
+	char prev_ch =0;
+	char ch = 0;
+	while ( true )
+	{		
+		char tmp = is.get();		
+		if (!is) break;
+		ch = tmp;
+		if ( prev_prev_ch != 0 )
+		{
+			if (prev_prev_ch == prev_ch && prev_ch != ch || buf.size() == 127)
+			{
+				os << "[r" << buf.size() << "]" << buf[0];
+				buf.clear();
+			}
+			else if (prev_prev_ch != prev_ch && prev_ch == ch || buf.size() == 127)
+			{
+				(void)buf.pop_back();
+				if (!buf.empty())
+				{
+					os << "[s" << buf.size() << "]" << buf;
+					buf.clear();
+				}
+				buf.push_back(ch);
+			}
+		}
+
+		buf.push_back(ch);
+		prev_prev_ch = prev_ch;
+		prev_ch = ch;
+	}
+
+	if (!buf.empty())
+	{
+		if (prev_prev_ch == prev_ch && prev_ch == ch)
+			os << "[r" << buf.size() << "]" << buf[0];
+		else
+			os << "[s" << buf.size() << "]" << buf;
+	}
+}
+
+template <typename in_iterator, typename out_iterator> 
+inline out_iterator encode_rle_i(in_iterator begin, in_iterator end, out_iterator out)
+{
+	if (begin == end)
+		return out;
+
+	if (begin+1 == end)
+		return out;		
+	
+	in_iterator i = begin+1;
+	bool prev_equal = *(i - 1) == *i;
+
+	while ( i != end )
+	{
+		bool equal = *(i-1) == *i;
+		
+		if( ( equal ^ prev_equal ) || (i - begin == 127) )
+		{
+			if (!prev_equal)
+				i--;
+			*out = (prev_equal?0:0x80) | (i - begin);
+			out++;
+			if (!prev_equal)
+			{
+				out = std::copy(begin, i, out);				
+			}
+			else
+			{
+				*out++ = *begin;
+			}
+			begin = i;
+		}
+		prev_equal = equal;
+		++i;
+	}
+
+	*out = (prev_equal ? 0 : 0x80) | (end - begin);
+	out++;
+	if (!prev_equal)
+	{
+		out = std::copy(begin, end, out);
+	}
+	else
+	{
+		*out++ = *begin;
+	}
+	return out;
+}
+
+template <typename container> bool encode_rle_c(const container &in, container & out)
 {
 	if( in.size()<2 )
 		return false;
@@ -105,36 +199,57 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::vector<std::string> test_results;
 	std::vector<std::string> test_data;
 
-	std::cout << dump_rle(std::string());
-
+	//std::cout << dump_rle(std::string());
 	test_data.push_back("aaaabcebcebceffff");  test_results.push_back("[r4]a[s9]bcebcebce[r4]f");
 	test_data.push_back("");				test_results.push_back("");
-	test_data.push_back("a");				test_results.push_back("");
+	test_data.push_back("a");				test_results.push_back("[s1]a");
 	test_data.push_back("aa");				test_results.push_back("[r2]a");
 	test_data.push_back("ba");				test_results.push_back("[s2]ba");
 	test_data.push_back("abc");				test_results.push_back("[s3]abc");
 	test_data.push_back("aaaabcebcebceffff");  test_results.push_back("[r4]a[s9]bcebcebce[r4]f");
 	test_data.push_back("aaaqqqssrtpp");	test_results.push_back("[r3]a[r3]q[r2]s[s2]rt[r2]p");
 	test_data.push_back(std::string(128, 'a')); test_results.push_back("[r127]a[r1]a");
+
+
 	for (unsigned int i = 0; i < test_data.size(); ++i)
 	{
-		std::string r;
-		const std::string &s = test_data[i];
-		bool result = encode_rle(s, r);
-		std::cout << "string[" << i << "]: encode is " << std::boolalpha << result << "; input: " << s << " output: " << dump_rle(r) << "\n";
-		assert(test_results[i] == dump_rle(r));
-	}
-	
-	std::vector<char> in;
-	std::vector<char> out;
+		std::stringstream in_s;
+		in_s.str(test_data[i]);
+		std::stringstream out_s;
+		out_s.str("");
+		encode_rle(in_s, out_s);
+		std::string r = out_s.str();
 
-	in.push_back('a'); in.push_back('a'); in.push_back('a'); in.push_back('a');
-	// param. calculation side effect...
-	// std::cout << "vector result is " << encode_rle(in, out) << " input: aaaa output:" << dump_rle(out) << "\n";
-	bool result = encode_rle(in, out);
-	std::cout << "vector[0] result is " << std::boolalpha << result << " input: aaaa output:" << dump_rle(out) << "\n";
-	assert(dump_rle(out) == "[r4]a");
-	std::cout << "\n";
+		std::cout << "string[" << i << "] input: " << test_data[i] << " output: " << r << "\n";
+
+		assert( test_results[i] == r );
+	}
+
+	//std::string s( test_data[0].size(), '\0' );
+	//std::string::iterator i = encode_rle<std::string::iterator, std::string::iterator>(test_data[0].begin(), test_data[0].end(), s.begin());
+	//s.erase( i, s.end() );
+
+	//std::cout << dump_rle(s);
+
+	//for (unsigned int i = 0; i < test_data.size(); ++i)
+	//{
+	//	std::string r;
+	//	const std::string &s = test_data[i];
+	//	bool result = encode_rle<std::string>(s, r);
+	//	std::cout << "string[" << i << "]: encode is " << std::boolalpha << result << "; input: " << s << " output: " << dump_rle(r) << "\n";
+	//	assert(test_results[i] == dump_rle(r));
+	//}
+	//
+	//std::vector<char> in;
+	//std::vector<char> out;
+
+	//in.push_back('a'); in.push_back('a'); in.push_back('a'); in.push_back('a');
+	//// param. calculation side effect...
+	//// std::cout << "vector result is " << encode_rle(in, out) << " input: aaaa output:" << dump_rle(out) << "\n";
+	//bool result = encode_rle<std::vector>(in, out);
+	//std::cout << "vector[0] result is " << std::boolalpha << result << " input: aaaa output:" << dump_rle(out) << "\n";
+	//assert(dump_rle(out) == "[r4]a");
+	//std::cout << "\n";
 	
 	return 0;
 }
