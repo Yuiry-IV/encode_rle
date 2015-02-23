@@ -67,6 +67,57 @@ iterator insert_byte(const iterator begin, const iterator end, container &out)
 }
 
 
+enum encoder_state
+{
+	sequence_of_values,
+	repeated_values,
+};
+
+void write_out(char const *const in, unsigned size, encoder_state state, std::ostream &os)
+{
+	if (!size)
+		return;
+	os << "[";
+	if (repeated_values == state)
+		os << "r";
+	else
+		os << "s";
+
+	os << size;
+	os << "]";
+	if (repeated_values == state)
+		os << *in;
+	else
+		os << std::string(in, in + size);
+}
+
+void encode_rle(char const *const in, unsigned size, std::ostream &os)
+{
+	if (size < 1)
+		return;
+	encoder_state state = sequence_of_values;	
+	unsigned j = 0;
+	unsigned i = 1;
+	if (in[j] == in[i])
+		state = repeated_values;	
+	for (; i < size; ++i)
+	{		
+		if ( sequence_of_values == state && in[i - 1] == in[i] || i - 1 - j == 127 )
+		{
+			write_out(in + j, i - 1 - j, state, os);
+			j = i-1;
+			state = repeated_values;			
+		}
+		if ( repeated_values == state && in[i - 1] != in[i] || i - j == 127 )
+		{
+			write_out(in + j, i - j, state, os);
+			j = i;
+			state = sequence_of_values;
+		}
+	}
+	write_out(in + j, size-j, state, os);	
+}
+
 void encode_rle(std::istream &is, std::ostream &os)
 {
 	std::string buf;
@@ -198,20 +249,28 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	std::vector<std::string> test_results;
 	std::vector<std::string> test_data;
-
-	//std::cout << dump_rle(std::string());
+	
+	test_data.push_back("aaaqqqssrtpp");	test_results.push_back("[r3]a[r3]q[r2]s[s2]rt[r2]p");
 	test_data.push_back("aaaabcebcebceffff");  test_results.push_back("[r4]a[s9]bcebcebce[r4]f");
 	test_data.push_back("");				test_results.push_back("");
 	test_data.push_back("a");				test_results.push_back("[s1]a");
 	test_data.push_back("aa");				test_results.push_back("[r2]a");
 	test_data.push_back("ba");				test_results.push_back("[s2]ba");
 	test_data.push_back("abc");				test_results.push_back("[s3]abc");
-	test_data.push_back("aaaabcebcebceffff");  test_results.push_back("[r4]a[s9]bcebcebce[r4]f");
-	test_data.push_back("aaaqqqssrtpp");	test_results.push_back("[r3]a[r3]q[r2]s[s2]rt[r2]p");
-	test_data.push_back(std::string(128, 'a')); test_results.push_back("[r127]a[r1]a");
-
+	test_data.push_back("aaaabcebcebceffff");  test_results.push_back("[r4]a[s9]bcebcebce[r4]f");	
+	test_data.push_back(std::string(128, 'a')); test_results.push_back("[r127]a[s1]a");
 
 	for (unsigned int i = 0; i < test_data.size(); ++i)
+	{
+		std::stringstream out_s;				
+		const std::string &s = test_data[i];
+		encode_rle(s.c_str(), s.size(), out_s);		
+		const std::string r = out_s.str();
+		std::cout << "string[" << i << "] input: " << test_data[i] << " output: " << r << "\n";
+		assert(test_results[i] == r);
+	}	
+
+	/*for (unsigned int i = 0; i < test_data.size(); ++i)
 	{
 		std::stringstream in_s;
 		in_s.str(test_data[i]);
@@ -223,7 +282,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		std::cout << "string[" << i << "] input: " << test_data[i] << " output: " << r << "\n";
 
 		assert( test_results[i] == r );
-	}
+	}*/
 
 	//std::string s( test_data[0].size(), '\0' );
 	//std::string::iterator i = encode_rle<std::string::iterator, std::string::iterator>(test_data[0].begin(), test_data[0].end(), s.begin());
