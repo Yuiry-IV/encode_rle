@@ -82,3 +82,4 @@ $RECYCLE.BIN/
 *.pdb
 *.idb
 *.vcxproj.user
+*.opensdf
